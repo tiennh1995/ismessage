@@ -20,6 +20,7 @@ int main() {
   Message *msg;
   msg = (Message*)malloc(sizeof(Message));
   printf("Reading from the device...\n");
+  strcpy(receive, "10");
   ret = read(fd, receive, sizeof(Message));   // Read the response from the LKM
   if (ret < 0){
     perror("Failed to read the message from the device.");

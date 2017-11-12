@@ -1,31 +1,36 @@
-#include <linux/init.h>           // Macros used to mark up functions e.g. __init __exit
-#include <linux/module.h>         // Core header for loading LKMs into the kernel
-#include <linux/device.h>         // Header to support the kernel Driver Model
-#include <linux/kernel.h>         // Contains types, macros, functions for the kernel
-#include <linux/fs.h>             // Header for the Linux file system support
-#include <asm/uaccess.h>          // Required for the copy to user function
-#define  DEVICE_NAME "ismessage"  ///< The device will appear at /dev/ismessage using this value
-#define  CLASS_NAME  "is"         ///< The device class -- this is a character device driver
+#include <linux/init.h>             // Macros used to mark up functions e.g. __init __exit
+#include <linux/module.h>           // Core header for loading LKMs into the kernel
+#include <linux/device.h>           // Header to support the kernel Driver Model
+#include <linux/kernel.h>           // Contains types, macros, functions for the kernel
+#include <linux/fs.h>               // Header for the Linux file system support
+#include <asm/uaccess.h>            // Required for the copy to user function
+#define  DEVICE_NAME "ismessage"    ///< The device will appear at /dev/ismessage using this value
+#define  CLASS_NAME  "is"           ///< The device class -- this is a character device driver
 
+#include <linux/string.h>
 #include "message_struct.c"
+#define MAX_LENGTH 50
 
-MODULE_LICENSE("GPL");            ///< The license type -- this affects available functionality
-MODULE_AUTHOR("IS TEAM");         ///< The author -- visible when you use modinfo
+MODULE_LICENSE("GPL");              ///< The license type -- this affects available functionality
+MODULE_AUTHOR("IS TEAM");           ///< The author -- visible when you use modinfo
 MODULE_DESCRIPTION("A Linux char driver for the Message");  ///< The description -- see modinfo
-MODULE_VERSION("0.1");            ///< A version number to inform users
+MODULE_VERSION("0.1");              ///< A version number to inform users
 
-static int majorNumber;           ///< Stores the device number -- determined automatically
-static char message[260];         ///< Memory for the string that is passed from userspace
-static short size_of_message;     ///< Used to remember the size of the string stored
-static int numberOpens = 0;       ///< Counts the number of times the device is opened
+static int majorNumber;
+static short message_size = MESSAGE_SIZE; ///< Stores the device number -- determined automatically
+static int numberOpens = 0;         ///< Counts the number of times the device is opened
 static struct class* ismessageClass = NULL; ///< The device-driver class struct pointer
 static struct device* ismessageDevice = NULL; ///< The device-driver device struct pointer
+static char messages[MAX_LENGTH][MESSAGE_SIZE];
+static int messages_length = 0;
 
 // The prototype functions for the character driver -- must come before the struct definition
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
 static ssize_t dev_read(struct file *, char *, size_t, loff_t *);
 static ssize_t dev_write(struct file *, const char *, size_t, loff_t *);
+int dev_find_valid_message(int);
+int dev_copy_to_user(char *);
 
 static struct file_operations fops = {
   .open = dev_open,
@@ -56,7 +61,6 @@ static int __init ismessage_init(void) {
   }
   printk(KERN_INFO "ismessage: device class registered correctly\n");
 
-  // Register the device driver
   // Dang ki driver cua thiet bi
   ismessageDevice = device_create(ismessageClass, NULL, MKDEV(majorNumber, 0),
     NULL, DEVICE_NAME);
@@ -66,6 +70,7 @@ static int __init ismessage_init(void) {
     printk(KERN_ALERT "Failed to create the device\n");
     return PTR_ERR(ismessageDevice);
   }
+
   printk(KERN_INFO "ismessage: device class created correctly\n");
   return 0;
 }
@@ -91,13 +96,14 @@ static int dev_open(struct inode *inodep, struct file *filep) {
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
   loff_t *offset) {
   int error_count = 0;
-  // copy_to_user has the format ( * to, *from, size) and returns 0 on success
-  error_count = copy_to_user(buffer, message, size_of_message);
-  if (error_count == 0){            // if true then have success
-    printk(KERN_INFO "ismessage: Sent %d characters to the user\n", size_of_message);
-    return (size_of_message = 0);  // clear the position to the start and return 0
+  error_count = dev_copy_to_user(buffer);
+
+  if(error_count == 0) {            // if true then have success
+    printk(KERN_INFO "ismessage: Sent %d characters to the user\n",
+      message_size);
   } else {
-    printk(KERN_INFO "ismessage: Failed to send %d characters to the user\n", error_count);
+    printk(KERN_INFO "ismessage: Failed to send %d characters to the user\n",
+      error_count);
     return -EFAULT;              // Failed -- return a bad address message (i.e. -14)
   }
 }
@@ -105,8 +111,7 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
 // Khi co yeu cau ghi vao thiet bi
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len,
   loff_t *offset) {
-  copy_from_user(message, buffer, len);
-  size_of_message = 260;
+  copy_from_user(messages[messages_length++], buffer, len);
   printk(KERN_INFO "ismessage: Received %zu characters from the user\n", len);
   return len;
 }
@@ -115,6 +120,36 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len,
 static int dev_release(struct inode *inodep, struct file *filep) {
   printk(KERN_INFO "ismessage: Device successfully closed\n");
   return 0;
+}
+
+// Tim kiem vi tri message thich hop de tra ve
+int dev_find_valid_message(int key) {
+  int i;
+  Message* msg;
+  for(i = messages_length - 1; i >= 0; i--) {
+    msg = (Message*) messages[i];
+    if(msg->key == key)
+      return i;
+  }
+  return -1;
+}
+
+// Ho tro viec copy tu kernel space sang vung user space
+int dev_copy_to_user(char* buffer) {
+  if(messages_length > 0) {
+    int error_count = 0;
+    int key = simple_strtol(buffer, NULL, key);
+    int index = dev_find_valid_message(key);
+    if(index != -1) {
+      error_count = copy_to_user(buffer, messages[index], message_size);
+      if(error_count == 0)
+        messages_length--;
+      else
+        error_count = -EFAULT;
+    }
+    return error_count;
+  }
+  return -EFAULT;
 }
 
 // module_exit and module_init
