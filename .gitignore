@@ -1,0 +1,12 @@
+testwrite
+testread
+Module.symvers
+ismessage.ko
+ismessage.mod.c
+modules.order
+.ismessage.ko.cmd
+.ismessage.mod.o.cmd
+.ismessage.o.cmd
+.tmp_versions
+ismessage.mod.o
+ismessage.o

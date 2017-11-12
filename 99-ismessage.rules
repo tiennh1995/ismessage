@@ -1,0 +1,2 @@
+#Rules file for the ismessage device driver
+KERNEL=="ismessage", SUBSYSTEM=="is", MODE="0666"
