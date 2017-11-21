@@ -9,24 +9,28 @@
 
 static char receive[BUFFER_LENGTH];
 
-int main() {
+int main(int argc, char *argv[]) {
   int ret, fd;
-  printf("Starting device test code example...\n");
-  fd = open("/dev/ismessage", O_RDWR); //Open the device with read/write access
-  if (fd < 0) {
-    perror("Failed to open the device...");
-    return errno;
-  }
+  if(argc == 2) {
+    printf("Starting device test code example...\n");
+    fd = open("/dev/ismessage", O_RDWR); //Open the device with read/write access
+    if (fd < 0) {
+      perror("Failed to open the device...");
+      return errno;
+    }
 
-  Message *msg;
-  msg = (Message*)malloc(sizeof(Message));
-  msg->key = 10;
-  printf("Type in a short string to send to the kernel module:\n");
-  scanf("%[^\n]%*c", msg->data);                // Read in a string (with spaces)
-  ret = write(fd, (char*)msg, sizeof(Message)); // Send the string to the LKM
-  if (ret < 0){
-    perror("Failed to write the message to the device.");
-    return errno;
+    Message *msg;
+    msg = (Message*)malloc(sizeof(Message));
+    msg->key = atoi(argv[1]);
+    printf("Type in a short string to send to the kernel module:\n");
+    scanf("%[^\n]%*c", msg->data);                // Read in a string (with spaces)
+    ret = write(fd, (char*)msg, sizeof(Message)); // Send the string to the LKM
+    if (ret < 0){
+      perror("Failed to write the message to the device.");
+      return errno;
+    }
+  } else {
+    printf("please enter parameter [key]...\n");
   }
   return 0;
 }
