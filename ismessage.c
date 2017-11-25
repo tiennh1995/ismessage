@@ -34,7 +34,6 @@ static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
 static ssize_t dev_read(struct file *, char *, size_t, loff_t *);
 static ssize_t dev_write(struct file *, const char *, size_t, loff_t *);
-// static int dev_ioctl(struct inode *, struct file *, unsigned int, unsigned long);
 static long dev_ioctl (struct file *, unsigned int, unsigned long);
 int dev_find_valid_message(int);
 int dev_copy_to_user(char *);
@@ -96,25 +95,22 @@ static void __exit ismessage_exit(void) {
 // Khi co yeu cau mo thiet bi
 static int dev_open(struct inode *inodep, struct file *filep) {
   numberOpens++;
-  printk(KERN_INFO "kiki ismessage: Device has been opened %d time(s)\n",
+  printk(KERN_INFO "ismessage: Device has been opened %d time(s)\n",
     numberOpens);
   return 0;
 }
 
-//static int dev_ioctl(struct inode *inodep, struct file *filep,
-//  unsigned int ioctl_num, unsigned long ioctl_param) {
-static long dev_ioctl (struct file *filep, unsigned int ioctl_num, unsigned long ioctl_param) {
-  printk(KERN_INFO "AAAAA\n");
-  printk(KERN_INFO "xin chao, haha world filep: %d\n", filep);
-  printk(KERN_INFO "chao ioctl_num: %d\n", ioctl_num);
-  printk(KERN_INFO "chao (char*)ioctl_param: %s\n", (char*)ioctl_param);
-  // printk(KERN_INFO "chao key: %d\n", key);
+static long dev_ioctl(struct file *filep, unsigned int ioctl_num, unsigned long ioctl_param) {
   switch(ioctl_num) {
     case IOCTL_SET_MSG:
-      printk(KERN_INFO "BBBBBBBBBBB\n");
-      dev_write(filep, (char*)ioctl_param, sizeof(Message), 0);
+      if(dev_write(filep, (char*)ioctl_param, sizeof(Message), 0) < 0) {
+        return -1;
+      }
       break;
     case IOCTL_GET_MSG:
+      if(dev_read(filep, (char*)ioctl_param, sizeof(Message), 0) < 0) {
+        return -1;
+      }
       break;
   }
   return 0;
@@ -138,7 +134,6 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
 // Khi co yeu cau ghi vao thiet bi
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len,
   loff_t *offset) {
-  printk(KERN_INFO "AAAAAAAAAAAAAAAAAAAAAAAAA%s\n", buffer);
   int i = find_0();
   if(i == -1) return -1;
   copy_from_user(messages[i], buffer, len);

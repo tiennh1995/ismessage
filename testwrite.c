@@ -29,11 +29,6 @@ int main(int argc, char *argv[]) {
 
     ioctl_write_msg(fd, (char*)msg);
 
-    // ret = write(fd, (char*)msg, sizeof(Message)); // Send the string to the LKM
-    // if (ret < 0){
-    //   perror("Failed to write the message to the device.");
-    //   return errno;
-    // }
   } else {
     printf("please enter parameter [key]...\n");
   }
@@ -42,9 +37,6 @@ int main(int argc, char *argv[]) {
 
 void ioctl_write_msg(int file_desc, char *message) {
   int ret_val;
-  printf("file_desc: %d\n", file_desc);
-  printf("file_desc: %d\n", IOCTL_SET_MSG);
-  printf("file_desc: %s\n", message);
   ret_val = ioctl(file_desc, IOCTL_SET_MSG, message);
   if (ret_val < 0) {
     printf ("ioctl_set_msg failed:%d\n", ret_val);
