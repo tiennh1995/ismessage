@@ -5,6 +5,7 @@
 #include <linux/fs.h>               // Header for the Linux file system support
 #include <asm/uaccess.h>            // Required for the copy to user function
 #include <linux/string.h>
+#include "chardev.h"
 
 #define  DEVICE_NAME "ismessage"    ///< The device will appear at /dev/ismessage using this value
 #define  CLASS_NAME  "is"           ///< The device class -- this is a character device driver
@@ -27,15 +28,14 @@ static struct class* ismessageClass = NULL; ///< The device-driver class struct 
 static struct device* ismessageDevice = NULL; ///< The device-driver device struct pointer
 static char messages[MAX_LENGTH][MESSAGE_SIZE];
 static int check[MAX_LENGTH];
-static int messages_length = 0;
-static int ready = 1;
 
 // The prototype functions for the character driver -- must come before the struct definition
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
 static ssize_t dev_read(struct file *, char *, size_t, loff_t *);
 static ssize_t dev_write(struct file *, const char *, size_t, loff_t *);
-static int dev_ioctl(struct inode*, struct file*, int, char*, int);
+// static int dev_ioctl(struct inode *, struct file *, unsigned int, unsigned long);
+static long dev_ioctl (struct file *, unsigned int, unsigned long);
 int dev_find_valid_message(int);
 int dev_copy_to_user(char *);
 int find_0(void);
@@ -45,6 +45,7 @@ static struct file_operations fops = {
   .read = dev_read,
   .write = dev_write,
   .release = dev_release,
+  .unlocked_ioctl = dev_ioctl,
 };
 
 // Khi bat dau dang ki thiet bi
@@ -95,8 +96,27 @@ static void __exit ismessage_exit(void) {
 // Khi co yeu cau mo thiet bi
 static int dev_open(struct inode *inodep, struct file *filep) {
   numberOpens++;
-  printk(KERN_INFO "ismessage: Device has been opened %d time(s)\n",
+  printk(KERN_INFO "kiki ismessage: Device has been opened %d time(s)\n",
     numberOpens);
+  return 0;
+}
+
+//static int dev_ioctl(struct inode *inodep, struct file *filep,
+//  unsigned int ioctl_num, unsigned long ioctl_param) {
+static long dev_ioctl (struct file *filep, unsigned int ioctl_num, unsigned long ioctl_param) {
+  printk(KERN_INFO "AAAAA\n");
+  printk(KERN_INFO "xin chao, haha world filep: %d\n", filep);
+  printk(KERN_INFO "chao ioctl_num: %d\n", ioctl_num);
+  printk(KERN_INFO "chao (char*)ioctl_param: %s\n", (char*)ioctl_param);
+  // printk(KERN_INFO "chao key: %d\n", key);
+  switch(ioctl_num) {
+    case IOCTL_SET_MSG:
+      printk(KERN_INFO "BBBBBBBBBBB\n");
+      dev_write(filep, (char*)ioctl_param, sizeof(Message), 0);
+      break;
+    case IOCTL_GET_MSG:
+      break;
+  }
   return 0;
 }
 
@@ -107,8 +127,7 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
   error_count = dev_copy_to_user(buffer);
 
   if(error_count == 0) {            // if true then have success
-    printk(KERN_INFO "ismessage: Sent %d characters to the user\n",
-      message_size);
+    printk(KERN_INFO "ismessage: Sent %d characters to the user\n",message_size);
   } else {
     printk(KERN_INFO "ismessage: Failed to send %d characters to the user\n",
       error_count);
@@ -119,6 +138,7 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
 // Khi co yeu cau ghi vao thiet bi
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len,
   loff_t *offset) {
+  printk(KERN_INFO "AAAAAAAAAAAAAAAAAAAAAAAAA%s\n", buffer);
   int i = find_0();
   if(i == -1) return -1;
   copy_from_user(messages[i], buffer, len);
