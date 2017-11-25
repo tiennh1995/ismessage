@@ -21,6 +21,7 @@ MODULE_AUTHOR("IS TEAM");           ///< The author -- visible when you use modi
 MODULE_DESCRIPTION("A Linux char driver for the Message");  ///< The description -- see modinfo
 MODULE_VERSION("0.1");              ///< A version number to inform users
 
+static int ready = 1;
 static int majorNumber;
 static short message_size = MESSAGE_SIZE; ///< Stores the device number -- determined automatically
 static int numberOpens = 0;         ///< Counts the number of times the device is opened
@@ -100,20 +101,33 @@ static int dev_open(struct inode *inodep, struct file *filep) {
   return 0;
 }
 
+// quan ly vao ra
 static long dev_ioctl(struct file *filep, unsigned int ioctl_num, unsigned long ioctl_param) {
-  switch(ioctl_num) {
-    case IOCTL_SET_MSG:
-      if(dev_write(filep, (char*)ioctl_param, sizeof(Message), 0) < 0) {
-        return -1;
-      }
-      break;
-    case IOCTL_GET_MSG:
-      if(dev_read(filep, (char*)ioctl_param, sizeof(Message), 0) < 0) {
-        return -1;
-      }
-      break;
+  int ec = 0;
+  if(ready == 1) {
+    ready = 0;
+    int i;
+    while(i<7000000) {
+      printk(KERN_INFO "AAAA %d\n", i);
+      i = i + 1;
+    }
+    switch(ioctl_num) {
+      case IOCTL_SET_MSG:
+        if(dev_write(filep, (char*)ioctl_param, sizeof(Message), 0) < 0) {
+          ec = -1;
+        }
+        break;
+      case IOCTL_GET_MSG:
+        if(dev_read(filep, (char*)ioctl_param, sizeof(Message), 0) < 0) {
+          ec = -1;
+        }
+        break;
+    }
+    ready = 1;
+    return ec;
+  } else {
+    return -1;
   }
-  return 0;
 }
 
 // Khi co yeu cau doc thiet bi
