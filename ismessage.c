@@ -21,14 +21,14 @@ MODULE_AUTHOR("IS TEAM");           ///< The author -- visible when you use modi
 MODULE_DESCRIPTION("A Linux char driver for the Message");  ///< The description -- see modinfo
 MODULE_VERSION("0.1");              ///< A version number to inform users
 
-static int ready = 1;
+static int ready = 1;               // Kiem soat tinh trang c the truy cap thiet bi hay k
 static int majorNumber;
 static short message_size = MESSAGE_SIZE; ///< Stores the device number -- determined automatically
 static int numberOpens = 0;         ///< Counts the number of times the device is opened
 static struct class* ismessageClass = NULL; ///< The device-driver class struct pointer
 static struct device* ismessageDevice = NULL; ///< The device-driver device struct pointer
 static char messages[MAX_LENGTH][MESSAGE_SIZE];
-static int check[MAX_LENGTH];
+static int check[MAX_LENGTH];       // Luu vi tri trang thai cua mang messages
 
 // The prototype functions for the character driver -- must come before the struct definition
 static int dev_open(struct inode *, struct file *);
@@ -36,9 +36,9 @@ static int dev_release(struct inode *, struct file *);
 static ssize_t dev_read(struct file *, char *, size_t, loff_t *);
 static ssize_t dev_write(struct file *, const char *, size_t, loff_t *);
 static long dev_ioctl (struct file *, unsigned int, unsigned long);
-int dev_find_valid_message(int);
-int dev_copy_to_user(char *);
-int find_0(void);
+int dev_find_valid_message(int); // Tim kiem message hop le de tra ve
+int dev_copy_to_user(char *); // Ho tro copy tu kernel -> user mode
+int find_valid_index(void);
 
 static struct file_operations fops = {
   .open = dev_open,
@@ -101,16 +101,21 @@ static int dev_open(struct inode *inodep, struct file *filep) {
   return 0;
 }
 
-// quan ly vao ra
-static long dev_ioctl(struct file *filep, unsigned int ioctl_num, unsigned long ioctl_param) {
+// Quan ly vao ra
+static long dev_ioctl(struct file *filep, unsigned int ioctl_num,
+  unsigned long ioctl_param) {
   int ec = 0;
   if(ready == 1) {
     ready = 0;
+
+    // Dung de sinh ra truong hop 2 tien trinh cung co truy cap thiet bi
     int i;
-    while(i<7000000) {
-      printk(KERN_INFO "AAAA %d\n", i);
+    while(i < 7000000) {
+      printk(KERN_INFO "Truy cap %d\n", i);
       i = i + 1;
     }
+
+    // Thuc hien cac thao tac dua vao yeu cau cua nguoi dung
     switch(ioctl_num) {
       case IOCTL_SET_MSG:
         if(dev_write(filep, (char*)ioctl_param, sizeof(Message), 0) < 0) {
@@ -123,6 +128,7 @@ static long dev_ioctl(struct file *filep, unsigned int ioctl_num, unsigned long 
         }
         break;
     }
+
     ready = 1;
     return ec;
   } else {
@@ -137,7 +143,8 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
   error_count = dev_copy_to_user(buffer);
 
   if(error_count == 0) {            // if true then have success
-    printk(KERN_INFO "ismessage: Sent %d characters to the user\n",message_size);
+    printk(KERN_INFO "ismessage: Sent %d characters to the user\n",
+      message_size);
   } else {
     printk(KERN_INFO "ismessage: Failed to send %d characters to the user\n",
       error_count);
@@ -148,10 +155,10 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
 // Khi co yeu cau ghi vao thiet bi
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len,
   loff_t *offset) {
-  int i = find_0();
-  if(i == -1) return -1;
-  copy_from_user(messages[i], buffer, len);
-  check[i] = 1;
+  int index = find_valid_index();
+  if (index == -1) return -1;
+  copy_from_user(messages[index], buffer, len);
+  check[index] = 1;
   printk(KERN_INFO "ismessage: Received %zu characters from the user\n", len);
   return len;
 }
@@ -162,11 +169,11 @@ static int dev_release(struct inode *inodep, struct file *filep) {
   return 0;
 }
 
-// Tim vi tri trong trong messages
-int find_0() {
+// Tim vi tri trong messages
+int find_valid_index() {
   int i;
-  for(i = 0; i < MAX_LENGTH; i++) {
-    if(check[i] == 0) return i;
+  for (i = 0; i < MAX_LENGTH; i++) {
+    if (check[i] == 0) return i;
   }
   return -1;
 }
@@ -175,12 +182,10 @@ int find_0() {
 int dev_find_valid_message(int key) {
   int i;
   Message* msg;
-  for(i = 0; i < MAX_LENGTH; i++) {
-    if(check[i] == 1) {
+  for (i = 0; i < MAX_LENGTH; i++) {
+    if (check[i] == 1) {
       msg = (Message*) messages[i];
-      if(msg->key == key) {
-        return i;
-      }
+      if (msg->key == key) return i;
     }
   }
   return -1;
@@ -191,7 +196,7 @@ int dev_copy_to_user(char* buffer) {
   int error_count = 0;
   int key = simple_strtol(buffer, NULL, key);
   int index = dev_find_valid_message(key);
-  if(index != -1) {
+  if (index != -1) {
     error_count = copy_to_user(buffer, messages[index], message_size);
     check[index] = 0;
   } else {

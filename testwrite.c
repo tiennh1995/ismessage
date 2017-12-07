@@ -9,11 +9,12 @@
 #include "message_struct.c"
 
 static char receive[BUFFER_LENGTH];
+
 void ioctl_write_msg(int, char*);
 
 int main(int argc, char *argv[]) {
   int ret, fd;
-  if(argc == 2) {
+  if (argc == 2) {
     printf("Starting device test code example...\n");
     fd = open("/dev/ismessage", O_RDWR); //Open the device with read/write access
     if (fd < 0) {
@@ -28,9 +29,9 @@ int main(int argc, char *argv[]) {
     scanf("%[^\n]%*c", msg->data);                // Read in a string (with spaces)
 
     ioctl_write_msg(fd, (char*)msg);
-
   } else {
-    printf("please enter parameter [key]...\n");
+    printf("Please enter parameter [key]...\n");
+    printf("Syntax error!\n");
   }
   return 0;
 }
@@ -39,7 +40,7 @@ void ioctl_write_msg(int file_desc, char *message) {
   int ret_val;
   ret_val = ioctl(file_desc, IOCTL_SET_MSG, message);
   if (ret_val < 0) {
-    printf ("ioctl_set_msg failed:%d\n", ret_val);
+    printf ("ioctl_set_msg failed: %d\n", ret_val);
     exit(-1);
   }
 }

@@ -14,7 +14,7 @@ void ioctl_read_msg(int, char*);
 
 int main(int argc, char *argv[]) {
   int ret, fd;
-  if(argc == 2) {
+  if (argc == 2) {
     printf("Starting device test code example...\n");
     fd = open("/dev/ismessage", O_RDWR); // Open the device with read/write access
     if (fd < 0) {
@@ -34,7 +34,8 @@ int main(int argc, char *argv[]) {
     printf("The received message is: [%d]\n", msg->key);
     printf("End of the program\n");
   } else {
-    printf("please enter parameter [key]...\n");
+    printf("Please enter parameter [key]...\n");
+    printf("Syntax error!\n");
   }
   return 0;
 }
@@ -43,7 +44,7 @@ void ioctl_read_msg(int file_desc, char *message) {
   int ret_val;
   ret_val = ioctl(file_desc, IOCTL_GET_MSG, message);
   if (ret_val < 0) {
-    printf ("ioctl_get_msg failed:%d\n", ret_val);
+    printf ("ioctl_get_msg failed: %d\n", ret_val);
     exit(-1);
   }
 }
