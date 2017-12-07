@@ -2,12 +2,12 @@
 
 Step 1: make
 
-Step 2: sudo insmod ./ismessage.ko
+sudo insmod ./ismessage.ko
 
-Step 3: sudo ./testwrite
+sudo ./testwrite
 
-Step 4: sudo ./testread
+sudo ./testread
 
-To remove driver: sudo rmmod ./ismessage.ko
+sudo rmmod ./ismessage.ko
 
 Wow! you can use this app!

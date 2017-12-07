@@ -4,39 +4,48 @@
 #include <linux/kernel.h>           // Contains types, macros, functions for the kernel
 #include <linux/fs.h>               // Header for the Linux file system support
 #include <asm/uaccess.h>            // Required for the copy to user function
+#include <linux/string.h>
+#include "chardev.h"
+
 #define  DEVICE_NAME "ismessage"    ///< The device will appear at /dev/ismessage using this value
 #define  CLASS_NAME  "is"           ///< The device class -- this is a character device driver
 
 #include <linux/string.h>
 #include "message_struct.c"
 #define MAX_LENGTH 50
+#define IOCTL_WRITE_MSG 0
+#define IOCTL_READ_MSG 1
 
 MODULE_LICENSE("GPL");              ///< The license type -- this affects available functionality
 MODULE_AUTHOR("IS TEAM");           ///< The author -- visible when you use modinfo
 MODULE_DESCRIPTION("A Linux char driver for the Message");  ///< The description -- see modinfo
 MODULE_VERSION("0.1");              ///< A version number to inform users
 
+static int ready = 1;
 static int majorNumber;
 static short message_size = MESSAGE_SIZE; ///< Stores the device number -- determined automatically
 static int numberOpens = 0;         ///< Counts the number of times the device is opened
 static struct class* ismessageClass = NULL; ///< The device-driver class struct pointer
 static struct device* ismessageDevice = NULL; ///< The device-driver device struct pointer
 static char messages[MAX_LENGTH][MESSAGE_SIZE];
-static int messages_length = 0;
+static int check[MAX_LENGTH];
 
 // The prototype functions for the character driver -- must come before the struct definition
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
 static ssize_t dev_read(struct file *, char *, size_t, loff_t *);
 static ssize_t dev_write(struct file *, const char *, size_t, loff_t *);
+static long dev_ioctl (struct file *, unsigned int, unsigned long);
 int dev_find_valid_message(int);
 int dev_copy_to_user(char *);
+int find_0(void);
 
 static struct file_operations fops = {
   .open = dev_open,
   .read = dev_read,
   .write = dev_write,
   .release = dev_release,
+  .unlocked_ioctl = dev_ioctl,
 };
 
 // Khi bat dau dang ki thiet bi
@@ -92,6 +101,35 @@ static int dev_open(struct inode *inodep, struct file *filep) {
   return 0;
 }
 
+// quan ly vao ra
+static long dev_ioctl(struct file *filep, unsigned int ioctl_num, unsigned long ioctl_param) {
+  int ec = 0;
+  if(ready == 1) {
+    ready = 0;
+    int i;
+    while(i<7000000) {
+      printk(KERN_INFO "AAAA %d\n", i);
+      i = i + 1;
+    }
+    switch(ioctl_num) {
+      case IOCTL_SET_MSG:
+        if(dev_write(filep, (char*)ioctl_param, sizeof(Message), 0) < 0) {
+          ec = -1;
+        }
+        break;
+      case IOCTL_GET_MSG:
+        if(dev_read(filep, (char*)ioctl_param, sizeof(Message), 0) < 0) {
+          ec = -1;
+        }
+        break;
+    }
+    ready = 1;
+    return ec;
+  } else {
+    return -1;
+  }
+}
+
 // Khi co yeu cau doc thiet bi
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
   loff_t *offset) {
@@ -99,8 +137,7 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
   error_count = dev_copy_to_user(buffer);
 
   if(error_count == 0) {            // if true then have success
-    printk(KERN_INFO "ismessage: Sent %d characters to the user\n",
-      message_size);
+    printk(KERN_INFO "ismessage: Sent %d characters to the user\n",message_size);
   } else {
     printk(KERN_INFO "ismessage: Failed to send %d characters to the user\n",
       error_count);
@@ -111,7 +148,10 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
 // Khi co yeu cau ghi vao thiet bi
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len,
   loff_t *offset) {
-  copy_from_user(messages[messages_length++], buffer, len);
+  int i = find_0();
+  if(i == -1) return -1;
+  copy_from_user(messages[i], buffer, len);
+  check[i] = 1;
   printk(KERN_INFO "ismessage: Received %zu characters from the user\n", len);
   return len;
 }
@@ -122,34 +162,42 @@ static int dev_release(struct inode *inodep, struct file *filep) {
   return 0;
 }
 
+// Tim vi tri trong trong messages
+int find_0() {
+  int i;
+  for(i = 0; i < MAX_LENGTH; i++) {
+    if(check[i] == 0) return i;
+  }
+  return -1;
+}
+
 // Tim kiem vi tri message thich hop de tra ve
 int dev_find_valid_message(int key) {
   int i;
   Message* msg;
-  for(i = messages_length - 1; i >= 0; i--) {
-    msg = (Message*) messages[i];
-    if(msg->key == key)
-      return i;
+  for(i = 0; i < MAX_LENGTH; i++) {
+    if(check[i] == 1) {
+      msg = (Message*) messages[i];
+      if(msg->key == key) {
+        return i;
+      }
+    }
   }
   return -1;
 }
 
 // Ho tro viec copy tu kernel space sang vung user space
 int dev_copy_to_user(char* buffer) {
-  if(messages_length > 0) {
-    int error_count = 0;
-    int key = simple_strtol(buffer, NULL, key);
-    int index = dev_find_valid_message(key);
-    if(index != -1) {
-      error_count = copy_to_user(buffer, messages[index], message_size);
-      if(error_count == 0)
-        messages_length--;
-      else
-        error_count = -EFAULT;
-    }
-    return error_count;
+  int error_count = 0;
+  int key = simple_strtol(buffer, NULL, key);
+  int index = dev_find_valid_message(key);
+  if(index != -1) {
+    error_count = copy_to_user(buffer, messages[index], message_size);
+    check[index] = 0;
+  } else {
+    return -EFAULT;
   }
-  return -EFAULT;
+  return error_count;
 }
 
 // module_exit and module_init
